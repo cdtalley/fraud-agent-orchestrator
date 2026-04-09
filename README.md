@@ -53,6 +53,29 @@ pip install -e .
 python -m fraud_agent_orchestrator.cli run --input data\sample_transactions.json --pretty
 ```
 
+## Futuristic web console (Vite + React + Three.js)
+
+Terminal 1 — API (CORS allows `localhost:5173`):
+
+```bash
+pip install -e .
+fraud-api
+```
+
+Or: `python -m uvicorn fraud_agent_orchestrator.api.main:app --host 127.0.0.1 --port 8000`
+
+Terminal 2 — UI:
+
+```bash
+cd web
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The dev server proxies `/api/*` to the Python backend.
+
+**Production UI build:** `cd web && npm run build` — serve `web/dist` behind any static host; set `FRAUD_API_CORS_ORIGINS` on the API to match your UI origin, or put both behind one reverse proxy.
+
 ## Example output
 
 Each transaction receives:
@@ -68,9 +91,12 @@ Each transaction receives:
 fraud-agent-orchestrator/
   data/
     sample_transactions.json
+  web/
+    (Vite React console)
   src/
     fraud_agent_orchestrator/
       agents/
+      api/
       workflows/
       cli.py
       config.py

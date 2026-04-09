@@ -9,10 +9,15 @@ description = "Local multi-agent fraud triage showcase with Ollama."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Drake Talley" }]
-dependencies = []
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+]
 
 [project.scripts]
 fraud-agent-orchestrator = "fraud_agent_orchestrator.cli:main"
+fraud-api = "fraud_agent_orchestrator.api.main:run"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
