@@ -1,57 +1,76 @@
-"""FastAPI app: triage endpoint for the futuristic web console."""
+"""FastAPI application: enterprise fraud orchestrator API."""
 
 from __future__ import annotations
 
 import os
-from typing import Any
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
-from fraud_agent_orchestrator.workflows import FraudOrchestrator
-
-app = FastAPI(
-    title="Fraud Agent Orchestrator",
-    description="Multi-agent fraud triage API",
-    version="0.2.0",
-)
-
-_origins = os.environ.get(
-    "FRAUD_API_CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173",
-)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[o.strip() for o in _origins.split(",") if o.strip()],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-_orchestrator = FraudOrchestrator()
+from fraud_agent_orchestrator.api.limits import limiter
+from fraud_agent_orchestrator.api.routes import cases, drift, health
+from fraud_agent_orchestrator.db.session import init_db
+from fraud_agent_orchestrator.settings.env import get_settings
 
 
-@app.get("/api/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    await init_db()
+    yield
 
 
-@app.post("/api/v1/triage")
-def triage(alert: dict[str, Any]) -> dict[str, Any]:
-    try:
-        return _orchestrator.run_one(alert)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+def create_app() -> FastAPI:
+    settings = get_settings()
+    app = FastAPI(
+        title="Fraud Agent Orchestrator",
+        description="Multi-agent fraud triage: Temporal, OPA, RBAC, audit.",
+        version="1.0.0",
+        lifespan=lifespan,
+    )
+
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    app.add_middleware(SlowAPIMiddleware)
+
+    _origins = os.environ.get("FRAUD_API_CORS_ORIGINS") or settings.fraud_api_cors_origins
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[o.strip() for o in _origins.split(",") if o.strip()],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    app.include_router(cases.router, prefix="/api/v1")
+    app.include_router(drift.router, prefix="/api/v1")
+    app.include_router(health.router)
+
+    @app.middleware("http")
+    async def add_request_id(request: Request, call_next):
+        import uuid
+
+        rid = request.headers.get("x-request-id") or str(uuid.uuid4())
+        response = await call_next(request)
+        response.headers["x-request-id"] = rid
+        return response
+
+    return app
+
+
+app = create_app()
 
 
 def run() -> None:
     import uvicorn
 
-    host = os.environ.get("FRAUD_API_HOST", "127.0.0.1")
-    port = int(os.environ.get("FRAUD_API_PORT", "8000"))
+    settings = get_settings()
     uvicorn.run(
         "fraud_agent_orchestrator.api.main:app",
-        host=host,
-        port=port,
+        host=settings.fraud_api_host,
+        port=settings.fraud_api_port,
         reload=False,
     )

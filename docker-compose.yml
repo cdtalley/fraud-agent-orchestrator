@@ -1,0 +1,43 @@
+# Local dependencies for enterprise demo: Postgres, Redis, OPA.
+# Temporal: run `temporal server start-dev` (Temporal CLI) or connect to your cluster;
+# set TEMPORAL_ADDRESS=localhost:7233 (default).
+#
+#   docker compose up -d
+#   export DATABASE_URL=postgresql+asyncpg://fraud:fraud@localhost:5432/fraud
+#   export REDIS_URL=redis://localhost:6379/0
+#   export OPA_URL=http://127.0.0.1:8181
+#   pip install -e ".[dev]"
+#   fraud-api
+#   fraud-temporal-worker   # after Temporal is reachable
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: fraud
+      POSTGRES_PASSWORD: fraud
+      POSTGRES_DB: fraud
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  opa:
+    image: openpolicyagent/opa:0.70.0
+    ports:
+      - "8181:8181"
+    command:
+      - "run"
+      - "--server"
+      - "--addr=:8181"
+      - "/policies"
+    volumes:
+      - ./opa/policies:/policies:ro
+
+volumes:
+  pgdata:

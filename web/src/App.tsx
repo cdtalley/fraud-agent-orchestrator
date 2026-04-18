@@ -1,5 +1,6 @@
 import { SceneBackground } from "./components/SceneBackground";
 import { ScanlineOverlay } from "./components/ScanlineOverlay";
+import { CaseQueue } from "./components/CaseQueue";
 import { TriageConsole } from "./components/TriageConsole";
 
 export default function App() {
@@ -30,7 +31,8 @@ export default function App() {
         </div>
       </header>
 
-      <main className="relative z-10 mx-auto max-w-[1600px] px-6 py-8">
+      <main className="relative z-10 mx-auto max-w-[1600px] space-y-6 px-6 py-8">
+        <CaseQueue />
         <TriageConsole />
       </main>
 

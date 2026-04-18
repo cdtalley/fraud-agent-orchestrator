@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fraud-agent-orchestrator"
-version = "0.1.0"
-description = "Local multi-agent fraud triage showcase with Ollama."
+version = "1.0.0"
+description = "Enterprise multi-agent fraud triage: Temporal, FastAPI, OPA, OIDC, Postgres, Redis."
 readme = "README.md"
 requires-python = ">=3.10"
 authors = [{ name = "Drake Talley" }]
@@ -13,14 +13,36 @@ dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
     "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "httpx>=0.27",
+    "PyJWT[crypto]>=2.9",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.20",
+    "asyncpg>=0.30",
+    "redis>=5.2",
+    "temporalio>=1.8",
+    "slowapi>=0.1.9",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.8",
 ]
 
 [project.scripts]
 fraud-agent-orchestrator = "fraud_agent_orchestrator.cli:main"
 fraud-api = "fraud_agent_orchestrator.api.main:run"
+fraud-temporal-worker = "fraud_agent_orchestrator.temporal_layer.worker:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
