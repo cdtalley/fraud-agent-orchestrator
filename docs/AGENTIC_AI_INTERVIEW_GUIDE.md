@@ -24,13 +24,15 @@ Use this document to **study** for agentic / LLM-systems interviews and to **def
 
 ## How to use this repo as a study lab
 
-| Time | Activity |
-|------|-----------|
-| 15 min | Read `README.md` “Enterprise platform” + run `pytest -q`. |
-| 30 min | Trace one alert: CLI → `FraudOrchestrator.run_one` → open each agent file in order. |
-| 45 min | Run API + UI: `fraud-api`, `npm run dev` in `web/`, hit sync triage + list cases. |
-| 2 h | Read Temporal workflow + activities; draw the diagram on paper without looking. |
+
+| Time     | Activity                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------- |
+| 15 min   | Read `README.md` “Enterprise platform” + run `pytest -q`.                                                       |
+| 30 min   | Trace one alert: CLI → `FraudOrchestrator.run_one` → open each agent file in order.                             |
+| 45 min   | Run API + UI: `fraud-api`, `npm run dev` in `web/`, hit sync triage + list cases.                               |
+| 2 h      | Read Temporal workflow + activities; draw the diagram on paper without looking.                                 |
 | Half day | Pick one “gap” below and implement a thin slice (e.g., pytest for policy invariants, or OTel span on `/cases`). |
+
 
 Artifacts you can show: **hash-chained audit JSON**, **OPA merge**, **Temporal HITL signal path**, **signed evidence string**, **RBAC-gated routes**.
 
@@ -38,28 +40,32 @@ Artifacts you can show: **hash-chained audit JSON**, **OPA merge**, **Temporal H
 
 ## The “agentic” vocabulary interviewers expect
 
-| Term | Plain meaning | In this repo |
-|------|----------------|--------------|
-| **Agent** | A module with a narrow contract and side-effect boundary. | `agents/intake.py`, `feature.py`, `risk_scoring.py`, `policy.py`, `report.py`. |
-| **Orchestrator** | Scheduler / graph that wires agents and owns shared state. | `workflows/orchestrator.py` (`FraudOrchestrator`). |
-| **Workflow / durable execution** | Retries, timeouts, human steps, replay-safe control flow. | `temporal_layer/workflow.py`, `activities/triage.py`, `activities/hitl.py`. |
-| **Tool use** | Model calls structured functions/APIs. | Ollama HTTP client `ollama_client.py` (minimal “tool”); extend pattern for real tools. |
-| **Policy / constitution** | Hard constraints above model opinions. | `PolicyAgent` + OPA `opa/policies/fraud.rego` + merge in `services/triage_service.py`. |
-| **Guardrails** | Input validation, RBAC, rate limits, PII handling. | Pydantic contracts, `api/deps.py`, SlowAPI, hashed `user_id` in audit. |
-| **Observability** | Traces, logs, metrics, audit for incidents. | Audit trail + DB ledger + `x-request-id` middleware; OTel is a natural next step. |
-| **Eval** | Offline metrics + error analysis. | Not fully built; section below tells you how to talk about it credibly. |
+
+| Term                             | Plain meaning                                              | In this repo                                                                           |
+| -------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **Agent**                        | A module with a narrow contract and side-effect boundary.  | `agents/intake.py`, `feature.py`, `risk_scoring.py`, `policy.py`, `report.py`.         |
+| **Orchestrator**                 | Scheduler / graph that wires agents and owns shared state. | `workflows/orchestrator.py` (`FraudOrchestrator`).                                     |
+| **Workflow / durable execution** | Retries, timeouts, human steps, replay-safe control flow.  | `temporal_layer/workflow.py`, `activities/triage.py`, `activities/hitl.py`.            |
+| **Tool use**                     | Model calls structured functions/APIs.                     | Ollama HTTP client `ollama_client.py` (minimal “tool”); extend pattern for real tools. |
+| **Policy / constitution**        | Hard constraints above model opinions.                     | `PolicyAgent` + OPA `opa/policies/fraud.rego` + merge in `services/triage_service.py`. |
+| **Guardrails**                   | Input validation, RBAC, rate limits, PII handling.         | Pydantic contracts, `api/deps.py`, SlowAPI, hashed `user_id` in audit.                 |
+| **Observability**                | Traces, logs, metrics, audit for incidents.                | Audit trail + DB ledger + `x-request-id` middleware; OTel is a natural next step.      |
+| **Eval**                         | Offline metrics + error analysis.                          | Not fully built; section below tells you how to talk about it credibly.                |
+
 
 ---
 
 ## Theme map: question → repo → drill
 
-| Interview angle | Point at | Drill |
-|-----------------|----------|--------|
-| “How do you structure multi-agent systems?” | `agents/`, `workflows/orchestrator.py` | Add a sixth agent (e.g. `VelocityAgent`) behind a feature flag. |
-| “How do you prevent LLM hallucinations from shipping?” | `risk_scoring.py` + `policy.py` + OPA merge | Explain: numeric score is heuristic; LLM is narrative; policy can veto. |
-| “How do you do HITL?” | `temporal_layer/workflow.py` signal + `api/routes/cases.py` signal route | Walk through escalate → wait → `persist_hitl_activity`. |
-| “How do you prove compliance?” | `security.py` + `governance/evidence.py` + `audit_ledger` | Tamper one event in JSON; show `verify()` fails. |
-| “How do you scale ingestion?” | FastAPI + Temporal + idempotency header | Explain dedupe on `Idempotency-Key` and workflow id `fraud-case-{uuid}`. |
+
+| Interview angle                                        | Point at                                                                 | Drill                                                                    |
+| ------------------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------ |
+| “How do you structure multi-agent systems?”            | `agents/`, `workflows/orchestrator.py`                                   | Add a sixth agent (e.g. `VelocityAgent`) behind a feature flag.          |
+| “How do you prevent LLM hallucinations from shipping?” | `risk_scoring.py` + `policy.py` + OPA merge                              | Explain: numeric score is heuristic; LLM is narrative; policy can veto.  |
+| “How do you do HITL?”                                  | `temporal_layer/workflow.py` signal + `api/routes/cases.py` signal route | Walk through escalate → wait → `persist_hitl_activity`.                  |
+| “How do you prove compliance?”                         | `security.py` + `governance/evidence.py` + `audit_ledger`                | Tamper one event in JSON; show `verify()` fails.                         |
+| “How do you scale ingestion?”                          | FastAPI + Temporal + idempotency header                                  | Explain dedupe on `Idempotency-Key` and workflow id `fraud-case-{uuid}`. |
+
 
 ---
 
@@ -71,11 +77,11 @@ Artifacts you can show: **hash-chained audit JSON**, **OPA merge**, **Temporal H
 
 **Code path:** `FraudOrchestrator.run_one` in `workflows/orchestrator.py` calls:
 
-1. `IntakeAgent` — schema / sanity  
-2. `FeatureAgent` — derived signals  
-3. `RiskScoringAgent` — score + optional LLM notes  
-4. `PolicyAgent` — violations + decision thresholds  
-5. `ReportAgent` — human-readable summary  
+1. `IntakeAgent` — schema / sanity
+2. `FeatureAgent` — derived signals
+3. `RiskScoringAgent` — score + optional LLM notes
+4. `PolicyAgent` — violations + decision thresholds
+5. `ReportAgent` — human-readable summary
 
 **Say this:** “I treat ‘agent’ as an **engineering boundary**, not a prompt. The graph is explicit so we can test, replay, and swap implementations.”
 
@@ -165,12 +171,14 @@ Interviewers **will** ask about eval. Be honest: this repo is strong on **archit
 
 ## System design curveballs
 
-| Question | Strong answer skeleton |
-|----------|-------------------------|
-| “What if OPA is down?” | Fail-open vs fail-closed is a **product decision**; here OPA client returns allow with trace flag—**I’d make that configurable per environment**. |
-| “What if Temporal is down?” | API **falls back** to in-process triage and still returns a result—**degraded mode** is explicit. |
-| “How do you shard workflows?” | Partition by **tenant** or **hash(alert_id)**; separate task queues; workflow id includes tenant prefix. |
-| “How do you version prompts?” | Store **prompt template hash** in lineage (field exists); bump on change; correlate incidents to template version. |
+
+| Question                      | Strong answer skeleton                                                                                                                            |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| “What if OPA is down?”        | Fail-open vs fail-closed is a **product decision**; here OPA client returns allow with trace flag—**I’d make that configurable per environment**. |
+| “What if Temporal is down?”   | API **falls back** to in-process triage and still returns a result—**degraded mode** is explicit.                                                 |
+| “How do you shard workflows?” | Partition by **tenant** or **hash(alert_id)**; separate task queues; workflow id includes tenant prefix.                                          |
+| “How do you version prompts?” | Store **prompt template hash** in lineage (field exists); bump on change; correlate incidents to template version.                                |
+
 
 ---
 
@@ -186,19 +194,19 @@ Interviewers **will** ask about eval. Be honest: this repo is strong on **archit
 
 ## Self-study checklist (do these before the interview)
 
-- [ ] Trace **`FraudOrchestrator.run_one`** line by line with one row from `data/sample_transactions.json`.  
-- [ ] Explain **three** policy outcomes (`approve` / `review` / `escalate`) using **both** `PolicyAgent` and OPA.  
-- [ ] Draw **Temporal** control flow including **signal** and **timeout** branches without the code open.  
-- [ ] Walk **`POST /api/v1/cases`** vs **`POST /api/v1/triage`**—when you’d use each in production.  
-- [ ] Reconcile **hash chain** vs **HMAC evidence**—different threats (tamper vs authenticity).  
-- [ ] List **five** production upgrades you’d prioritize (auth hardening, OTel, eval harness, signed export bundle, case replay UI).  
-- [ ] Prepare **one failure story**: what broke, how audit helped, what you changed.
+- Trace `**FraudOrchestrator.run_one`** line by line with one row from `data/sample_transactions.json`.  
+- Explain **three** policy outcomes (`approve` / `review` / `escalate`) using **both** `PolicyAgent` and OPA.  
+- Draw **Temporal** control flow including **signal** and **timeout** branches without the code open.  
+- Walk `**POST /api/v1/cases`** vs `**POST /api/v1/triage**`—when you’d use each in production.  
+- Reconcile **hash chain** vs **HMAC evidence**—different threats (tamper vs authenticity).  
+- List **five** production upgrades you’d prioritize (auth hardening, OTel, eval harness, signed export bundle, case replay UI).  
+- Prepare **one failure story**: what broke, how audit helped, what you changed.
 
 ---
 
 ## Related docs in this repo
 
 - [README.md](../README.md) — runbooks, API table, enterprise section.  
-- [DEMO.md](./DEMO.md) — docker + env + curl examples.  
+- [DEMO.md](./DEMO.md) — docker + env + curl examples.
 
 You now have a **study spine**: vocabulary → themes → code map → drills → honest gaps. Re-read sections 4–9 the night before the interview; they map to the majority of agentic AI staff questions.
